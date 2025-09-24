@@ -1,0 +1,3 @@
+->Start the project by adding node modules
+->then start by node server.js
+->then go live to get front end
