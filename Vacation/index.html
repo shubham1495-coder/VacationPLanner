@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vacation Planner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .day[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-8px);
+            background-color: #0c3f0f;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            white-space: nowrap;
+            z-index: 50;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .day[data-tooltip]:hover::after {
+            opacity: 1;
+        }
+        .day-number-wrapper {
+            width: 2.25rem;
+            height: 2.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            transition: all 0.2s;
+        }
+        .day.holiday .day-number-wrapper {
+            background-color: #1e293b;
+            color: white;
+            font-weight: 700;
+        }
+        .day.today .day-number-wrapper {
+            outline: 2px solid #22c55e;
+            outline-offset: 2px;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="flex flex-col lg:flex-row min-h-screen">
+        <aside class="w-full lg:w-80 bg-white p-6 lg:p-8 border-r border-slate-200">
+            <header class="mb-10">
+                <h1 class="text-3xl font-bold text-slate-800">Vacation Planner</h1>
+                <p class="text-slate-500 mt-1">Your global holiday guide.</p>
+            </header>
+            
+            <div class="space-y-6">
+                <div>
+                    <label for="country-select" class="text-sm font-medium text-slate-700">Country</label>
+                    <select id="country-select" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
+                        <option value="US">United States</option>
+                        <option value="GB">United Kingdom</option>
+                        <option value="CA">Canada</option>
+                        <option value="AU">Australia</option>
+                        <option value="DE">Germany</option>
+                        <option value="FR">France</option>
+                        <option value="IN" selected>India</option>
+                        <option value="JP">Japan</option>
+                        <option value="BR">Brazil</option>
+                        <option value="IT">Italy</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-sm font-medium text-slate-700">View</label>
+                    <div class="mt-1 grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
+                        <button id="monthly-view-btn" class="px-3 py-1.5 text-sm font-semibold rounded-md transition-colors">Monthly</button>
+                        <button id="quarterly-view-btn" class="px-3 py-1.5 text-sm font-semibold rounded-md transition-colors">Quarterly</button>
+                    </div>
+                </div>
+
+                <div class="pt-4">
+                    <h3 class="text-sm font-medium text-slate-700 mb-2">Legend</h3>
+                    <div class="space-y-2 text-sm text-slate-600">
+                        <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-md bg-green-300"></span> 1 Holiday/Week</div>
+                        <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-md bg-green-600"></span> >1 Holiday/Week</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+
+        <main class="flex-1 p-6 lg:p-8">
+            <div class="flex items-center justify-between mb-6">
+                <h2 id="current-period-display" class="text-2xl font-bold text-slate-800 w-52"></h2>
+                <div class="flex items-center gap-2">
+                    <button id="prev-btn" class="p-2 rounded-full text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors">
+                        <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+                    </button>
+                    <button id="next-btn" class="p-2 rounded-full text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors">
+                        <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div id="calendar-container" class="transition-opacity duration-300">
+                <div id="calendar-header" class="grid grid-cols-7 gap-2 text-center font-semibold text-slate-500 mb-2">
+                    <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
+                </div>
+                <div id="calendar-grid">
+                   
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+           
+            const toYYYYMMDD = (date) => {
+                const year = date.getFullYear();
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                const day = date.getDate().toString().padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+
+            function getNthDayOfWeekInMonth(year, month, dayOfWeek, n) {
+                const d = new Date(Date.UTC(year, month, 1));
+                let count = 0;
+                while (d.getUTCMonth() === month) {
+                    if (d.getUTCDay() === dayOfWeek) {
+                        count++;
+                        if (count === n) return d;
+                    }
+                    d.setUTCDate(d.getUTCDate() + 1);
+                }
+                return null;
+            }
+
+            function getLastDayOfWeekInMonth(year, month, dayOfWeek) {
+                const d = new Date(Date.UTC(year, month + 1, 0));
+                while (d.getUTCDay() !== dayOfWeek) {
+                    d.setUTCDate(d.getUTCDate() - 1);
+                }
+                return d;
+            }
+
+            function getEaster(year) {
+                const a = year % 19, b = Math.floor(year / 100), c = year % 100,
+                      d = Math.floor(b / 4), e = b % 4,
+                      f = Math.floor((b + 8) / 25),
+                      g = Math.floor((b - f + 1) / 3),
+                      h = (19 * a + b - d - g + 15) % 30,
+                      i = Math.floor(c / 4), k = c % 4,
+                      l = (32 + 2 * e + 2 * i - h - k) % 7,
+                      m = Math.floor((a + 11 * h + 22 * l) / 451),
+                      month = Math.floor((h + l - 7 * m + 114) / 31),
+                      day = ((h + l - 7 * m + 114) % 31) + 1;
+                return new Date(Date.UTC(year, month - 1, day));
+            }
+
+            const getGoodFriday = (year) => {
+                const easter = getEaster(year);
+                const d = new Date(easter);
+                return new Date(d.setDate(d.getDate() - 2));
+            };
+
+            const getEasterMonday = (year) => {
+                const easter = getEaster(year);
+                const d = new Date(easter);
+                return new Date(d.setDate(d.getDate() + 1));
+            };
+
+            const getVictoriaDay = (year) => {
+                let d = new Date(Date.UTC(year, 4, 25));
+                while (d.getUTCDay() !== 1) {
+                    d.setUTCDate(d.getUTCDate() - 1);
+                }
+                return d;
+            };
+
+            const getCarnivalMonday = (year) => {
+                const easter = getEaster(year);
+                const d = new Date(easter);
+                return new Date(d.setDate(d.getDate() - 48));
+            };
+
+            const getCarnivalTuesday = (year) => {
+                const easter = getEaster(year);
+                const d = new Date(easter);
+                return new Date(d.setDate(d.getDate() - 47));
+            };
+
+            const getAscensionDay = (year) => {
+                const easter = getEaster(year);
+                const d = new Date(easter);
+                return new Date(d.setDate(d.getDate() + 39));
+            };
+
+            const getWhitMonday = (year) => {
+                const easter = getEaster(year);
+                const d = new Date(easter);
+                return new Date(d.setDate(d.getDate() + 50));
+            };
+
+            const getMountainDay = (year) => {
+                return new Date(Date.UTC(year, 7, 11));
+            };
+
+           let holidayRules = {};
+            try {
+                const response = await fetch('http://localhost:3000/holidays', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                holidayRules = await response.json();
+            } catch (e) {
+                console.error("Failed to load holiday data from API.", e);
+                document.getElementById('calendar-container').innerHTML = `<p class="text-center text-red-600">Could not load holiday data. Please try again later.</p>`;
+                return;
+            }
+
+            const calculationFunctions = {
+                'getNthDayOfWeekInMonth': getNthDayOfWeekInMonth,
+                'getLastDayOfWeekInMonth': getLastDayOfWeekInMonth,
+                'getGoodFriday': getGoodFriday,
+                'getEasterMonday': getEasterMonday,
+                'getVictoriaDay': getVictoriaDay,
+                'getCarnivalMonday': getCarnivalMonday,
+                'getCarnivalTuesday': getCarnivalTuesday,
+                'getAscensionDay': getAscensionDay,
+                'getWhitMonday': getWhitMonday,
+                'getMountainDay': getMountainDay
+            };
+
+            const holidaysCache = {};
+            const addHoliday = (map, date, name) => {
+                if (!map.has(date)) map.set(date, []);
+                map.get(date).push(name);
+            };
+
+            const getHolidaysForYear = (year, countryCode) => {
+                const cacheKey = `${countryCode}-${year}`;
+                if (holidaysCache[cacheKey]) return holidaysCache[cacheKey];
+                const holidaysMap = new Map();
+                const rules = holidayRules[countryCode] || { fixed: {}, floating: {}, lookup: {} };
+
+            
+                if (rules.fixed) {
+                    for (const date in rules.fixed) {
+                        addHoliday(holidaysMap, `${year}-${date}`, rules.fixed[date]);
+                    }
+                }
+                if (rules.floating) {
+                    for (const name in rules.floating) {
+                        const ruleString = rules.floating[name];
+                        
+                        const match = ruleString.match(/get[A-Za-z]+/);
+                        if (match) {
+                            const funcName = match[0];
+                            const func = calculationFunctions[funcName];
+                            if (func) {
+                                const paramMatch = ruleString.match(/year,\s*(\d+),\s*(\d+),\s*(\d+)/) || ruleString.match(/year,\s*(\d+)/) || ruleString.match(/year/);
+                                let params = [];
+                                if (paramMatch && paramMatch.length > 1) {
+                                    params = paramMatch.slice(1).map(Number);
+                                }
+                                const holidayUTCDate = func(year, ...params);
+                                if (holidayUTCDate) {
+                                    const correctedDate = new Date(holidayUTCDate.getUTCFullYear(), holidayUTCDate.getUTCMonth(), holidayUTCDate.getUTCDate());
+                                    addHoliday(holidaysMap, toYYYYMMDD(correctedDate), name);
+                                }
+                            }
+                        } else if (ruleString.startsWith("(year) => '")) {
+                           
+                            const dateMatch = ruleString.match(/'(\d{2}-\d{2})'/);
+                            if (dateMatch) {
+                                addHoliday(holidaysMap, `${year}-${dateMatch[1]}`, name);
+                            }
+                        }
+                    }
+                }
+
+                if (rules.lookup && rules.lookup[year]) {
+                    const yearLookup = rules.lookup[year];
+                    for (const name in yearLookup) {
+                        addHoliday(holidaysMap, `${year}-${yearLookup[name]}`, name);
+                    }
+                }
+
+                  if (!holidayRules[countryCode]) {
+                    addHoliday(holidaysMap, `${year}-01-01`, "New Year's Day");
+                    addHoliday(holidaysMap, `${year}-12-25`, "Christmas Day");
+                }
+
+                holidaysCache[cacheKey] = holidaysMap;
+                return holidaysMap;
+            };
+
+
+            
+            const countrySelect = document.getElementById('country-select');
+            const monthlyViewBtn = document.getElementById('monthly-view-btn');
+            const quarterlyViewBtn = document.getElementById('quarterly-view-btn');
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const currentPeriodDisplay = document.getElementById('current-period-display');
+            const calendarGrid = document.getElementById('calendar-grid');
+            const calendarHeader = document.getElementById('calendar-header');
+            
+            let currentDate = new Date();
+            let selectedCountry = 'IN';
+            let viewMode = 'monthly';
+
+
+
+            const initialize = () => {
+                addEventListeners();
+                updateCalendar();
+                updateViewButtons();
+            };
+
+            const addEventListeners = () => {
+                countrySelect.addEventListener('change', (e) => {
+                    selectedCountry = e.target.value;
+                    updateCalendar();
+                });
+                monthlyViewBtn.addEventListener('click', () => switchView('monthly'));
+                quarterlyViewBtn.addEventListener('click', () => switchView('quarterly'));
+                prevBtn.addEventListener('click', navigatePrevious);
+                nextBtn.addEventListener('click', navigateNext);
+            };
+            
+            const updateCalendar = () => {
+                updatePeriodDisplay();
+                if (viewMode === 'monthly') renderMonthlyView(currentDate);
+                else renderQuarterlyView(currentDate);
+            };
+            
+            const renderMonthlyView = (date) => {
+                calendarHeader.classList.remove('hidden');
+                calendarGrid.innerHTML = '';
+                calendarGrid.className = 'flex flex-col gap-1';
+                populateMonthGrid(calendarGrid, date, false);
+            };
+
+            const renderQuarterlyView = (date) => {
+                calendarHeader.classList.add('hidden');
+                calendarGrid.innerHTML = '';
+                calendarGrid.className = 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8';
+                const year = date.getFullYear();
+                const currentMonth = date.getMonth();
+                const startMonth = Math.floor(currentMonth / 3) * 3;
+                for (let i = 0; i < 3; i++) {
+                    const month = startMonth + i;
+                    const monthDate = new Date(year, month, 1);
+                    const monthContainer = document.createElement('div');
+                    const monthTitle = document.createElement('h3');
+                    monthTitle.className = 'text-lg font-semibold text-center mb-4 text-slate-700';
+                    monthTitle.textContent = monthDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+                    monthContainer.appendChild(monthTitle);
+                    const monthHeader = document.createElement('div');
+                    monthHeader.className = 'grid grid-cols-7 gap-2 text-center font-semibold text-slate-500 mb-2 text-xs';
+                    ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(day => {
+                        const dayEl = document.createElement('div');
+                        dayEl.textContent = day;
+                        monthHeader.appendChild(dayEl);
+                    });
+                    monthContainer.appendChild(monthHeader);
+                    const monthGrid = document.createElement('div');
+                    monthGrid.className = 'flex flex-col gap-1';
+                    populateMonthGrid(monthGrid, monthDate, true);
+                    monthContainer.appendChild(monthGrid);
+                    calendarGrid.appendChild(monthContainer);
+                }
+            };
+
+            const populateMonthGrid = (gridElement, date, isMini) => {
+                const month = date.getMonth();
+                const year = date.getFullYear();
+                const holidays = getHolidaysForYear(year, selectedCountry);
+                const firstDayOfMonth = new Date(year, month, 1);
+                const lastDayOfMonth = new Date(year, month + 1, 0);
+                const startDate = getStartOfWeek(firstDayOfMonth);
+                const endDate = getEndOfWeek(lastDayOfMonth);
+
+                let currentWeek = [];
+                for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                    currentWeek.push(new Date(d));
+                    if (d.getDay() === 6) {
+                        const weekEl = document.createElement('div');
+                        weekEl.className = 'grid grid-cols-7 rounded-lg';
+                        
+                        const weeklyCount = getWeekHolidayCount(currentWeek[0], holidays);
+                        if (weeklyCount > 1) {
+                            weekEl.className += ' bg-green-600';
+                        } else if (weeklyCount === 1) {
+                            weekEl.className += ' bg-green-300';
+                        }
+
+                        currentWeek.forEach(day => {
+                            if (day.getMonth() === month) {
+                                weekEl.appendChild(createDayCell(day, holidays, isMini));
+                            } else {
+                                weekEl.appendChild(createEmptyDayCell(isMini));
+                            }
+                        });
+
+                        gridElement.appendChild(weekEl);
+                        currentWeek = [];
+                    }
+                }
+            };
+
+            const createDayCell = (date, holidays, isMini = false) => {
+                const cell = document.createElement('div');
+                const sizeClasses = isMini ? 'h-12' : 'h-24';
+                cell.className = `day relative flex items-center justify-center transition-colors duration-200 ${sizeClasses}`;
+                const dateString = toYYYYMMDD(date);
+                const holidayNames = holidays.get(dateString);
+                
+                const dayNumberWrapper = document.createElement('div');
+                dayNumberWrapper.className = 'day-number-wrapper';
+
+                const dayNumber = document.createElement('span');
+                dayNumber.textContent = date.getDate();
+                dayNumber.className = `text-sm ${isMini ? '' : 'lg:text-base'} font-medium ${holidayNames ? 'text-white' : 'text-slate-700'}`;
+
+                if (holidayNames && holidayNames.length > 0) {
+                    cell.classList.add('holiday');
+                    cell.setAttribute('data-tooltip', holidayNames.join(' / '));
+                }
+                
+                if (isToday(date)) cell.classList.add('today');
+
+                dayNumberWrapper.appendChild(dayNumber);
+                cell.appendChild(dayNumberWrapper);
+                return cell;
+            };
+            
+            const createEmptyDayCell = (isMini = false) => {
+                const cell = document.createElement('div');
+                cell.className = isMini ? 'h-12' : 'h-24';
+                return cell;
+            };
+
+            const updateViewButtons = () => {
+                const buttons = [ { el: monthlyViewBtn, view: 'monthly' }, { el: quarterlyViewBtn, view: 'quarterly' } ];
+                buttons.forEach(btn => {
+                    if (btn.view === viewMode) {
+                        btn.el.classList.add('bg-white', 'text-green-600', 'shadow-sm');
+                        btn.el.classList.remove('text-slate-600');
+                    } else {
+                        btn.el.classList.remove('bg-white', 'text-green-600', 'shadow-sm');
+                        btn.el.classList.add('text-slate-600');
+                    }
+                });
+            };
+
+            const switchView = (newView) => {
+                if (viewMode === newView) return;
+                viewMode = newView;
+                updateViewButtons();
+                updateCalendar();
+            };
+
+            const navigatePrevious = () => {
+                if (viewMode === 'monthly') currentDate.setMonth(currentDate.getMonth() - 1);
+                else if (viewMode === 'quarterly') currentDate.setMonth(currentDate.getMonth() - 3);
+                updateCalendar();
+            };
+
+            const navigateNext = () => {
+                if (viewMode === 'monthly') currentDate.setMonth(currentDate.getMonth() + 1);
+                else if (viewMode === 'quarterly') currentDate.setMonth(currentDate.getMonth() + 3);
+                updateCalendar();
+            };
+            
+            const updatePeriodDisplay = () => {
+                if (viewMode === 'monthly') {
+                    currentPeriodDisplay.textContent = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+                } else if (viewMode === 'quarterly') {
+                    const quarter = Math.floor(currentDate.getMonth() / 3) + 1;
+                    currentPeriodDisplay.textContent = `Q${quarter} ${currentDate.getFullYear()}`;
+                }
+            };
+
+            const getWeekHolidayCount = (date, holidays) => {
+                let totalHolidays = 0;
+                const startOfWeek = getStartOfWeek(date);
+                for (let i = 0; i < 7; i++) {
+                    const dayInWeek = new Date(startOfWeek);
+                    dayInWeek.setDate(startOfWeek.getDate() + i);
+                    const dateString = toYYYYMMDD(dayInWeek);
+                    if (holidays.has(dateString)) {
+                        totalHolidays += holidays.get(dateString).length;
+                    }
+                }
+                return totalHolidays;
+            };
+            
+            const getStartOfWeek = (date) => {
+                const d = new Date(date);
+                const day = d.getDay();
+                const diff = d.getDate() - day;
+                return new Date(d.setDate(diff));
+            };
+            
+            const getEndOfWeek = (date) => {
+                const d = new Date(date);
+                const day = d.getDay();
+                const diff = d.getDate() - day + 6;
+                return new Date(d.setDate(diff));
+            };
+
+            const isToday = (date) => toYYYYMMDD(date) === toYYYYMMDD(new Date());
+
+            initialize();
+        });
+    </script>
+</body>
+</html>
